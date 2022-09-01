@@ -22,16 +22,16 @@ enum _menu_options
 
 typedef enum _menu_options menu_options;
 
-bool match_login_info(user *u)
+user *match_login_info(user *u)
 {
     for (int i = 0; i < user_count; i++)
     {
         if (!(strcmp(USERS[i].uname, u->uname) || strcmp(USERS[i].pass, u->pass)))
         {
-            return true;
+            return &USERS[i];
         }
     }
-    return false;
+    return NULL;
 }
 
 bool username_taken(user *u)
@@ -64,6 +64,7 @@ static void read_from_user(char *out_str, int max_len)
 bool login(user *current_user)
 {
     user temp;
+    // Memory leak
     temp.uname = calloc(MAX_UNAME_LEN + 1, sizeof(char));
     temp.pass = calloc(MAX_PASS_LEN + 1, sizeof(char));
 
@@ -73,14 +74,19 @@ bool login(user *current_user)
     printf("Password: ");
     read_from_user(temp.pass, MAX_PASS_LEN);
 
-    if (!match_login_info(&temp))
+    user *match = match_login_info(&temp);
+
+    if (match == NULL)
     {
         printf("\n");
         printf("\nIncorrect username or password\n\n");
         return false;
     }
 
-    *current_user = temp;
+    *current_user = *match;
+
+    free(temp.uname);
+    free(temp.pass);
     return true;
 }
 
