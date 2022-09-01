@@ -1,135 +1,163 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
-struct user
+struct _user
 {
     char *uname;
     char *pass;
 };
 
-typedef struct user user;
+typedef struct _user user;
 
-/*
-    "
-    Hello World!\n
-    Username Password\n
-    First last\n
-    "
+#define MAX_USERS 10
+user USERS[MAX_USERS];
+int user_count = 0;
 
-    while not eof
-        while c not \n
-            add c to str
-            strcmp str, username
-*/
-
-char *load_users()
+enum _menu_options
 {
-    FILE *fp = fopen("users.txt", "r");
-    if (fp == NULL)
+    REGISTER, LOGIN
+};
+
+typedef enum _menu_options menu_options;
+
+bool match_login_info(user *u)
+{
+    for (int i = 0; i < user_count; i++)
     {
-        return NULL;
+        if (!(strcmp(USERS[i].uname, u->uname) || strcmp(USERS[i].pass, u->pass)))
+        {
+            return true;
+        }
     }
+    return false;
+}
 
-    fseek(fp, 0, SEEK_END);
-    int fsize = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-
-    char *str = malloc(sizeof(char) * fsize + 1);
-    if (str == NULL)
+bool username_taken(user *u)
+{
+    for (int i = 0; i < user_count; i++)
     {
-        return NULL;
+        if (!strcmp(USERS[i].uname, u->uname))
+        {
+            return true;
+        }
     }
+    return false;
+}
 
+static void read_from_user(char *out_str, int max_len)
+{
     int len = 0;
-    char buffer;
-    while (fread(&buffer, sizeof(char), 1, fp))
+    char next;
+    while ((next = fgetc(stdin)) != '\n' && len < max_len)
     {
-        str[len++] = buffer;
+        out_str[len++] = next;
     }
 
-    fclose(fp);
-    
-    str[len] = '\0';
-    return str;
+    out_str[len] = '\0';
 }
 
-/*
-    for every line
-        lstart = line[0]
-        while line[lend] != '\n'
-            lend++
-*/
+#define MAX_UNAME_LEN 25
+#define MAX_PASS_LEN 15
 
-bool user_registered(user *u, char *file_data)
+bool login(user *current_user)
 {
-    int line_start = 0;
-    int line_end = 0;
+    user temp;
+    temp.uname = calloc(MAX_UNAME_LEN + 1, sizeof(char));
+    temp.pass = calloc(MAX_PASS_LEN + 1, sizeof(char));
+
+    printf("Username: ");
+    read_from_user(temp.uname, MAX_UNAME_LEN);
+
+    printf("Password: ");
+    read_from_user(temp.pass, MAX_PASS_LEN);
+
+    if (!match_login_info(&temp))
+    {
+        printf("\n");
+        printf("\nIncorrect username or password\n\n");
+        return false;
+    }
+
+    *current_user = temp;
+    return true;
 }
 
-void login(user *current_user)
+bool register_user()
 {
-    char *name = malloc(sizeof(char) * 120);
-    char *pass = malloc(sizeof(char) * 120);
-    scanf("%s", name);
-    scanf("%s", pass);
+    if (user_count == MAX_USERS)
+    {
+        printf("\nMaximum amount of users has been reached!\n\n");
+        return false;
+    }
 
+    user temp;
+    temp.uname = calloc(MAX_UNAME_LEN + 1, sizeof(char));
+    temp.pass = calloc(MAX_PASS_LEN + 1, sizeof(char));
 
+    printf("Username: ");
+    read_from_user(temp.uname, MAX_UNAME_LEN);
+
+    printf("Password: ");
+    read_from_user(temp.pass, MAX_PASS_LEN);
+
+    if (username_taken(&temp))
+    {
+        printf("\nUsername already taken.\n\n");
+        return false;
+    }
+
+    USERS[user_count++] = temp;
+    return true;
 }
 
-/*
-    extract:
-        read name
-        read pass
-    to:
-        Read()
-*/
-
-/*
-    Login()
-        read name
-        read pass
-
-        if not name.registered then
-            echo "User doesn't exist!"
-            return -1
-
-        current_user = user(name, pass)
-*/
-
-/*
-    Register()
-        read name
-        read pass
-
-        if name.registered then
-            echo "Username already in use."
-            return -1
-        
-        current_user = user(name, pass)
-*/
-
-/*
-    SaveUser(name, pass)
-        open file
-        file.write name + " " + pass
-*/
-
-/*
-    LoadUsers()
-        str = file.read() >> heap
-        return str
-*/
 
 int main()
 {
-    char *users = load_users();
-    if (users == NULL)
+    user current_user;
+    int selected_action;
+    
+    printf("### Login System ###\n\n");
+
+    while (1)
     {
-        fprintf(stderr, "Failed to load users.\n");
-        return -1;
+        printf("Would you like to: \n");
+        printf("1 - Register\n");
+        printf("2 - Log In\n");
+        printf("\n> ");
+        scanf("%d", &selected_action);
+        fgetc(stdin); // Remove newline from buffer
+
+        switch (selected_action - 1)
+        {
+        case REGISTER:
+            if (register_user())
+            {
+                printf("\nUser created successfully.\n\n");
+            }
+            break;
+
+        case LOGIN:
+            if (login(&current_user))
+            {
+                printf("\nWelcome, %s! Logged in successfully!\n\n", current_user.uname);
+                goto cleanup;
+            }
+            break;
+        
+        default:
+            printf("Invalid option.\n");
+            break;
+        }
     }
 
-    printf("%s\n", users);
+cleanup:
+    for (int i = 0; i < user_count; i++)
+    {
+        free(USERS[i].uname);
+        free(USERS[i].pass);
+    }
+
     return 0;
 }
